@@ -132,11 +132,16 @@ public class SimpleNotepad implements ActionListener {
         guiPanel = new JPanel(new GridLayout(1,1));
         guiPanel.setPreferredSize(new Dimension(400, 600));
 
-        editorPane = new JEditorPane();
+        editorPane = new JEditorPane(){
+            public boolean getScrollableTracksViewportWidth() {
+                return true;
+            }
+        };
         editorPane.setPreferredSize(new Dimension(-1, -1));
 
         scrollPane = new JScrollPane(editorPane);
-
+        scrollPane.setHorizontalScrollBarPolicy(
+            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         guiPanel.add(scrollPane);
 
         KeyListener typingListener = new TypingListener();
