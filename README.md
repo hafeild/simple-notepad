@@ -20,6 +20,10 @@ In a terminal, clone and build the project:
 
 From a terminal, do:
 
+    ./simple-notepad
+
+Or:
+
     java -jar simple-notepad.jar
 
 Or, double click the jar file in a file browser. To open/save a file, right
