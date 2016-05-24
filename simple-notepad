@@ -1,4 +1,4 @@
 #!/bin/bash
 
-d=$(dirname "$(readlink -f "$0")")
+d=$(dirname "$(readlink "$0")")
 java -jar $d/simple-notepad.jar
