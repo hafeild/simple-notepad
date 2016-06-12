@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * is ideal for viewing and editing a notepad across desktops when the
  * underlying file is located in a auto synced directory, e.g. using a service
  * like Dropbox, Google Drive, or Box.
- * 
+ *
  * Created by hfeild on 5/14/16.
  */
 public class SimpleNotepad implements ActionListener {
@@ -88,7 +88,7 @@ public class SimpleNotepad implements ActionListener {
                     writeToFile();
 
                 // Reload the file contents if it changed from underneath us.
-                } else if(file != null && 
+                } else if(file != null &&
                         file.lastModified() > lastReadOrWrite){
                     System.err.println("File has changed; updating.");
                     loadFromFile();
@@ -129,6 +129,11 @@ public class SimpleNotepad implements ActionListener {
      * Creates the entire GUI and attaches listeners.
      */
     private void createUIComponents() {
+        try{
+            // This is necessary on Windows machines with high DPI screens.
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch(Exception e) {}
+            
         guiPanel = new JPanel(new GridLayout(1,1));
         guiPanel.setPreferredSize(new Dimension(400, 600));
 
@@ -169,13 +174,13 @@ public class SimpleNotepad implements ActionListener {
     }
 
     /**
-     * Creates a file pointing at the preference file (stored in the user's 
+     * Creates a file pointing at the preference file (stored in the user's
      * home directory). The actual file may or may not exist.
      *
      * @return The preference file.
      */
     public static File getUserPrefFile() {
-        return new File(System.getProperty("user.home") + 
+        return new File(System.getProperty("user.home") +
             File.separator + PREFERENCE_FILE_NAME);
     }
 
@@ -201,7 +206,7 @@ public class SimpleNotepad implements ActionListener {
             }
             reader.close();
         } catch(Exception e) {
-            System.err.println("Couldn't read preference file ("+ 
+            System.err.println("Couldn't read preference file ("+
                 userPrefFile.getAbsoluteFile() +")\n"+ e.getMessage());
         }
     }
@@ -219,7 +224,7 @@ public class SimpleNotepad implements ActionListener {
             writer.write("filename: "+ filename);
             writer.close();
         } catch(Exception e) {
-            System.err.println("Couldn't write preference file ("+ 
+            System.err.println("Couldn't write preference file ("+
                 userPrefFile.getAbsoluteFile() +")\n"+ e.getMessage());
         }
     }
@@ -275,7 +280,7 @@ public class SimpleNotepad implements ActionListener {
             writer.close();
             lastReadOrWrite = file.lastModified();
         } catch(FileNotFoundException e) {
-            System.err.println("File not found! ["+ filename +"]\n"+ 
+            System.err.println("File not found! ["+ filename +"]\n"+
                 e.getMessage());
         } catch(IOException e) {
             System.err.println("IOException writing to file "+ filename +
@@ -302,10 +307,10 @@ public class SimpleNotepad implements ActionListener {
             lastReadOrWrite = file.lastModified();
             editorPane.setText(buffer.toString());
         } catch(FileNotFoundException e) {
-            System.err.println("File not found! ["+ filename +"]\n"+ 
+            System.err.println("File not found! ["+ filename +"]\n"+
                 e.getMessage());
         } catch(IOException e) {
-            System.err.println("IOException reading file "+ filename +"\n"+ 
+            System.err.println("IOException reading file "+ filename +"\n"+
                 e.getMessage());
         }
     }
