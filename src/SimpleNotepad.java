@@ -1,19 +1,20 @@
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
 import java.io.*;
-import java.util.prefs.Preferences;
 import java.util.Date;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Scene;
+import javafx.scene.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.embed.swing.*;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.MouseButton;
+import javafx.stage.FileChooser;
 
 /**
  * SimpleNotepad is a super simple notepad. You can only edit one file at a
@@ -28,74 +29,32 @@ import javafx.embed.swing.*;
 public class SimpleNotepad extends Application {
     private final static int POLLING_FREQUENCY = 500; // Half a second.
     private final static String PREFERENCE_FILE_NAME = ".simple-notepad.rc";
-    private JEditorPane editorPane;
-    private javafx.scene.control.TextArea editorArea;
-    private JPanel guiPanel;
-    private JScrollPane scrollPane;
-    private Preferences prefs;
     private String filename;
     private File file;
     private AtomicBoolean contentIsDirty;
     private long lastReadOrWrite;
-    private JPopupMenu popup;
-    private JMenuItem saveAsMenuItem, openFileMenuItem;
     private PollingThread pollingThread;
     private enum DialogType {SAVE, OPEN};
 
-
-    /**
-     * This listens for right-clicks and displays the menu as a popup. This
-     * was taken from the Oracle PopupListener tutorial.
-     */
-    class PopupListener extends MouseAdapter {
-        public void mousePressed(MouseEvent e) {
-            maybeShowPopup(e);
-        }
-
-        public void mouseReleased(MouseEvent e) {
-            maybeShowPopup(e);
-        }
-
-        private void maybeShowPopup(MouseEvent e) {
-            if (e.isPopupTrigger()) {
-                popup.show(e.getComponent(),
-                        e.getX(), e.getY());
-            }
-        }
-    }
+    private Stage mainStage;
+    private TextArea editorArea;
+    private ContextMenu popupMenu;
+    private MenuItem saveAsMenuItemX, openFileMenuItemX;
 
     /**
      * Listens for a menu item to be selected.
      *
      * @param actionEvent The event that triggered the listener.
      */
-    class MenuClickListener implements ActionListener{
-        public void actionPerformed(java.awt.event.ActionEvent e){
-            if(e.getSource() == saveAsMenuItem){
+    class MenuClickListener implements EventHandler<ActionEvent>{
+        public void handle(ActionEvent e){
+            if(e.getSource() == saveAsMenuItemX){
                 showSaveFileDialog();
                 writeToFile();
-            } else if(e.getSource() == openFileMenuItem){
+            } else if(e.getSource() == openFileMenuItemX){
                 showOpenFileDialog();
                 loadFromFile();
             }
-        }
-    }
-
-    /**
-     * This listens for key presses. After a key is finished being pressed,
-     * the editor content is marked as dirty, indicating to the polling thread
-     * that it should be written to disk.
-     */
-    class TypingListener implements KeyListener {
-        public void keyTyped(KeyEvent e) {
-        }
-
-        public void keyPressed(KeyEvent e) {
-        }
-
-        public void keyReleased(KeyEvent e) {
-            contentIsDirty.set(true);
-            System.err.println("Key released; marking dirty!");
         }
     }
 
@@ -107,8 +66,12 @@ public class SimpleNotepad extends Application {
      *    editor.
      */
     class PollingThread extends Thread {
+        private boolean stop;
+        PollingThread(){
+            stop = false;
+        }
         public void run() {
-            while(true){
+            while(!stop){
                 // Write the editor content to file if it is dirty.
                 if(contentIsDirty.compareAndSet(true, false)) {
                     System.err.println("Content is dirty: writing file.");
@@ -128,13 +91,23 @@ public class SimpleNotepad extends Application {
                 }
             }
         }
+
+        public void finish(){
+            stop = true;
+        }
+
     }
 
     /**
      * Sets everything in motion.
+     *
+     * @param stage The primary stage the GUI components will be added to.
      */
     @Override
     public void start(Stage stage){
+        Platform.setImplicitExit(true);
+        mainStage = stage;
+
         pollingThread = new PollingThread();
         contentIsDirty = new AtomicBoolean();
         file = null;
@@ -155,55 +128,25 @@ public class SimpleNotepad extends Application {
 
     /**
      * Creates the entire GUI and attaches listeners.
+     *
+     * @param stage The primary stage the GUI components will be added to.
      */
     private void createUIComponents(Stage stage) {
-        // try{
-        //     // This is necessary on Windows machines with high DPI screens.
-        //     UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        // } catch(Exception e) {}
-
         SwingNode swingNode = new SwingNode();
         StackPane pane = new StackPane();
 
-        // guiPanel = new JPanel(new GridLayout(1,1));
-        // guiPanel.setPreferredSize(new Dimension(400, 600));
-
-        // editorPane = new JEditorPane(){
-        //     public boolean getScrollableTracksViewportWidth() {
-        //         return true;
-        //     }
-        // };
-        // editorPane.setPreferredSize(new Dimension(-1, -1));
-        //
-        // scrollPane = new JScrollPane(editorPane);
-        // scrollPane.setHorizontalScrollBarPolicy(
-        //     ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        // // guiPanel.add(scrollPane);
-        // SwingUtilities.invokeLater(new Runnable() {
-        //     @Override
-        //     public void run() {
-        //         swingNode.setContent(scrollPane);
-        //     }
-        // });
-
         editorArea = new javafx.scene.control.TextArea();
+        editorArea.setWrapText(true);
         editorArea.textProperty().addListener(
             (observable, oldValue, newValue)-> {
                 if(!newValue.equals(oldValue)){
                     contentIsDirty.set(true);
-                    System.err.println("Key released; marking dirty!");
+                    System.err.println("Content changed; marking dirty!");
                 }
             });
 
+        addPopupMenu();
 
-        // KeyListener typingListener = new TypingListener();
-        // editorPane.addKeyListener(typingListener);
-
-
-
-        //addPopupMenu();
-
-        //pane.getChildren().add(swingNode);
         pane.getChildren().add(editorArea);
         stage.setScene(new Scene(pane, 400, 600));
         stage.show();
@@ -215,18 +158,15 @@ public class SimpleNotepad extends Application {
     public void addPopupMenu(){
         System.err.println("Attaching popup menu...");
 
-        ActionListener menuClickListener = new MenuClickListener();
+        MenuClickListener menuClickListener = new MenuClickListener();
 
-        popup = new JPopupMenu();
-        saveAsMenuItem = new JMenuItem("Save as");
-        saveAsMenuItem.addActionListener(menuClickListener);
-        popup.add(saveAsMenuItem);
-        openFileMenuItem = new JMenuItem("Open file");
-        openFileMenuItem.addActionListener(menuClickListener);
-        popup.add(openFileMenuItem);
-
-        MouseListener popupListener = new PopupListener();
-        editorPane.addMouseListener(popupListener);
+        popupMenu = new ContextMenu();
+        saveAsMenuItemX = new MenuItem("Save as");
+        saveAsMenuItemX.setOnAction(menuClickListener);
+        openFileMenuItemX = new MenuItem("Open file");
+        openFileMenuItemX.setOnAction(menuClickListener);
+        popupMenu.getItems().addAll(saveAsMenuItemX, openFileMenuItemX);
+        editorArea.setContextMenu(popupMenu);
     }
 
     /**
@@ -307,16 +247,19 @@ public class SimpleNotepad extends Application {
      * @param type Whether the file is to be opened or saved.
      */
     public void showOpenSaveDialog(DialogType type){
-        JFileChooser chooser = new JFileChooser();
-        int returnVal;
+        FileChooser chooser = new FileChooser();
+        File chosenFile;
 
-        if(type == DialogType.OPEN)
-            returnVal = chooser.showOpenDialog(null);
-        else
-            returnVal = chooser.showSaveDialog(null);
+        if(type == DialogType.OPEN){
+            chooser.setTitle("Open existing file");
+            chosenFile = chooser.showOpenDialog(mainStage);
+        } else {
+            chooser.setTitle("Choose where to save file");
+            chosenFile = chooser.showSaveDialog(mainStage);
+        }
 
-        if(returnVal == JFileChooser.APPROVE_OPTION) {
-            file = chooser.getSelectedFile();
+        if(chosenFile != null) {
+            file = chosenFile;
             filename = file.getAbsolutePath();
             savePrefs();
         }
@@ -369,6 +312,15 @@ public class SimpleNotepad extends Application {
             System.err.println("IOException reading file "+ filename +"\n"+
                 e.getMessage());
         }
+    }
+
+    /**
+     * Shuts down the polling thread and exits the program.
+     */
+    @Override
+    public void stop(){
+        pollingThread.finish();
+        System.exit(0);
     }
 
     /**
